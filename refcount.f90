@@ -20,7 +20,7 @@ module ref_type
   contains
     procedure :: assign_star
     generic :: assignment(=) => assign_star
-    procedure :: set_temp
+    procedure :: set_res
     procedure :: val_real32
     procedure :: val_real64
     procedure :: val_int32
@@ -103,10 +103,10 @@ contains
   end subroutine
   
   
-  subroutine set_temp(self)
+  subroutine set_res(self)
     class(ref), intent(inout) :: self
     if (associated(self%ptr).and.self%weak<=0) &
-      self%ptr%ref_count = self%ptr%ref_count - 1
+      self%ptr%ref_count = self%ptr%ref_count + 1
   end subroutine
   
   
@@ -210,6 +210,15 @@ module cons_type
     
     res%car = a
     res%cdr = b
+    !res will be finalized, so we must increase the ref counts manually
+    call res%car%set_res
+    call res%cdr%set_res
+    
+#ifdef __GFORTRAN__
+    !HACK gfortran still does not finalize function results :(
+    res%car%ptr%ref_count = res%car%ptr%ref_count - 1
+    res%cdr%ptr%ref_count = res%cdr%ptr%ref_count - 1
+#endif
   end function
   
     
@@ -249,7 +258,7 @@ program test
 contains
 
   subroutine main
-    type(ref) :: a,b,c,d
+    type(ref) :: a,b,c,d, e
     
     class(*), pointer :: p
 
@@ -274,6 +283,7 @@ contains
         print *, "d: (",p%car%value(0),",",p%cdr%value(0),")"
     end select
     
+    e = cons(c, d)
     
     print *, "reference count of a:", a%ptr%ref_count
 
@@ -284,7 +294,7 @@ contains
     res = a
 #ifdef __GFORTRAN__
     !HACK gfortran still does not finalize function results :(
-    call res%set_temp
+    res%ptr%ref_count = res%ptr%ref_count - 1
 #endif
   end function
 
