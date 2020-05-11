@@ -31,6 +31,8 @@ module ref_type
                         val_int32, val_int64, &
                         val_char, val_logical
     procedure :: pointer => ref_pointer
+    procedure :: write_formatted => ref_write_formatted
+    generic :: write(formatted) => write_formatted
     final :: ref_finalize
   end type
   
@@ -125,6 +127,41 @@ contains
     type(refptr),intent(inout) :: self
 
     if (allocated(self%data)) deallocate(self%data)
+  end subroutine
+  
+  subroutine ref_write_formatted(self, unit, iotype, v_list, iostat, iomsg)
+    use iso_c_binding
+    class(ref), intent(in) :: self
+    integer, intent(in) :: unit
+    character(*), intent(in) :: iotype
+    integer, intent(in) :: v_list(:)
+    integer, intent(out) :: iostat
+    character(*), intent(inout) :: iomsg
+    
+    if (associated(self%ptr)) then
+      select type (x => self%ptr%data)
+        type is (character(*))
+          write(unit,*, iostat=iostat, iomsg=iomsg) x
+        type is (integer(int32))
+          write(unit,*, iostat=iostat, iomsg=iomsg) x
+        type is (integer(int64))
+          write(unit,*, iostat=iostat, iomsg=iomsg) x
+        type is (real(real32))
+          write(unit,*, iostat=iostat, iomsg=iomsg) x
+        type is (real(real64))
+          write(unit,*, iostat=iostat, iomsg=iomsg) x
+        type is (complex(real32))
+          write(unit,*, iostat=iostat, iomsg=iomsg) x
+        type is (complex(real64))
+          write(unit,*, iostat=iostat, iomsg=iomsg) x
+        type is (logical)
+          write(unit,*, iostat=iostat, iomsg=iomsg) x
+        class default
+          write(unit,'(a,z0)', iostat=iostat, iomsg=iomsg) "#ref:0x",transfer(c_loc(self%ptr), 1_c_intptr_t)
+      end select
+    else
+      write(unit,*, iostat=iostat, iomsg=iomsg) "null"
+    end if
   end subroutine
   
   
@@ -262,8 +299,8 @@ contains
     
     class(*), pointer :: p
 
-    a = 3.14
-    print *, "a:", a%value(0.0)
+    a = "abc"
+    print *, "a:", a
     
     
     a = 42
@@ -272,7 +309,7 @@ contains
     b = a
     b = f(a)
     
-    print *, "a:", a%value(0), "b:", b%value(0)
+    print *, "a:", a, "b:", b
     
     c = cons(a, b)
     d = c
@@ -280,8 +317,10 @@ contains
     p => d%pointer()
     select type(p)
       type is (cons)
-        print *, "d: (",p%car%value(0),",",p%cdr%value(0),")"
+        print *, "d: (",p%car,",",p%cdr,")"
     end select
+    
+    print *, "d:",d
     
     e = cons(c, d)
     
