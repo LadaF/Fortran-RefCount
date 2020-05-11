@@ -22,9 +22,13 @@
       if (present(ierr)) then
         ierr = n
       else
-        write(*,*) "Error at", __FILE__,__LINE__
-        write(*,*) "Error getting type FULL_T, code", n
-        stop
+        if (n==2) then
+          call backtrace
+          stop "Error in select type for &
+          &FULL_T."
+        else if (n==1) then
+          stop "Error, self%ptr not associated."
+        end if
       end if
     end subroutine
   end function
